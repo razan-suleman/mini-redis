@@ -1,64 +1,169 @@
-# mini-redis
+#  Mini Redis (Java)
 
-A lightweight Redis-compatible in-memory data store implemented in Java.
+A tiny in-memory database I built to understand how real systems actually work (and suffer a little in the process).
+his semester I finished my Software 1 course in TLV university, which started shifting from just writing code to thinking more about system design (which is amazing :))
+So I wanted to build a system end-to-end and understand how the pieces fit together in practice.
+
+## What is this?
+
+This is a **mini version of Redis**, built from scratch in Java.
+
+It’s a simple server that:
+
+* stores key-value pairs in memory
+* accepts commands over TCP
+* supports expiration (TTL)
+* can persist data to disk
+
+Basically:
+
+> You send it commands → it responds → it remembers things 
+
 
 ## Features
 
-- RESP (Redis Serialization Protocol) parsing
-- Core Redis commands (GET, SET, DEL, EXISTS, EXPIRE, TTL, ...)
-- Key expiration with TTL support
-- RDB-style persistence (dump to disk)
-- Single-threaded event loop server
+Current version supports:
 
-## Getting Started
+* `PING` → check if server is alive
+* `SET key value` → store a value
+* `GET key` → retrieve value
+* `DEL key` → delete key
+* `EXPIRE key seconds` → set time-to-live
 
-### Prerequisites
+### Example
 
-- Java 17+
-- Maven 3.8+
+```text
+SET name razan
+GET name
+→ razan
 
-### Build
+EXPIRE name 5
+(wait 5 seconds...)
+
+GET name
+→ (nil)
+```
+
+## How it works 
+
+The system is built in layers:
+
+```text
+Client
+  ↓
+TCP Server
+  ↓
+Command Parser
+  ↓
+Command Executor
+  ↓
+In-memory Store
+  ↓
+Persistence
+```
+
+### Key idea
+
+* **Server** → handles connections
+* **Parser** → understands commands
+* **Executor** → decides what to do
+* **Store** → holds the data
+
+---
+
+## Expiration (TTL)
+
+Each key can have an expiration time.
+
+Internally:
+
+```java
+expireAt = currentTime + seconds * 1000
+```
+
+On every access:
+
+* if expired → remove key
+* otherwise → return value
+
+Lazy deletion because:
+
+> I’m not trying to reinvent the entire Redis scheduler (yet)
+
+---
+
+##  Persistence
+
+Data can be saved to disk using a simple format:
+
+```text
+key|value|expireAt
+```
+Example:
+
+```text
+name|razan|null
+session|abc|1710000000000
+```
+
+On startup:
+
+* file is loaded
+* expired keys are ignored
+
+## 🌐 Networking
+
+The server uses:
+
+* `ServerSocket` → listens for connections
+* `Socket` → handles client communication
+* `BufferedReader` → reads commands
+* `PrintWriter` → sends responses
+
+Each client connection is handled independently.
+
+---
+
+## Concurrency
+
+Supports multiple clients using threads.
+
+Basic approach:
+
+* one thread per client
+* shared store with synchronization
+
+Yes, it’s simple. Yes, it works.
+
+---
+
+## How to run
+
+1. Start the server:
 
 ```bash
-mvn clean package
+java Main
 ```
 
-### Run
+2. Connect using:
 
 ```bash
-java -jar target/mini-redis.jar
+telnet localhost 6379
 ```
 
-Or use the provided script:
+3. Try commands:
 
-```bash
-bash scripts/run-client.sh
+```text
+PING
+SET x 10
+GET x
+DEL x
 ```
 
-### Benchmark
+This project forced me to understand:
 
-```bash
-bash scripts/benchmark.sh
-```
+* how client-server systems actually work
+* how data is stored and accessed efficiently
+* why parsing and protocol design matter
+* Debugging sockets at 2AM builds character.
 
-## Project Structure
-
-```
-src/main/java/com/razan/miniredis/
-├── server/       # TCP server and client connection handling
-├── protocol/     # RESP protocol parser and writer
-├── commands/     # Command dispatch and implementations
-├── store/        # In-memory key-value store
-├── persistence/  # Dump/restore to disk (dump.dat)
-└── expiration/   # TTL tracking and key expiration
-```
-
-## Documentation
-
-- [Architecture](docs/architecture.md)
-- [Protocol](docs/protocol.md)
-- [Design Decisions](docs/design-decisions.md)
-
-## License
-
-MIT
