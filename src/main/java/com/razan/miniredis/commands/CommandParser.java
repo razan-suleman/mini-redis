@@ -2,7 +2,7 @@ package com.razan.miniredis.commands;
 
 import java.util.*;
 public class CommandParser {
-    public Command parse(String line) { 
+    public Command parse(String line) throws Exception { 
         if (line == null || line.isEmpty())
             throw new Exception("invalid command");
         line = line.trim();
